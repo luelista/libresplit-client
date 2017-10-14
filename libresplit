@@ -15,7 +15,7 @@ parser.add_argument('--opt', '-O', help='override a config option', action='appe
 subparsers = parser.add_subparsers(help='sub-command help', dest='command')
 sp_store_config = subparsers.add_parser('store-config', help='store config options which are changed with the --opt argument permanently')
 sp_login = subparsers.add_parser('login', help='login with a login token')
-sp_login.add_argument('login-token', metavar='TOKEN')
+sp_login.add_argument('login_token', metavar='TOKEN')
 sp_add = subparsers.add_parser('add', help='add a new transaction')
 sp_show = subparsers.add_parser('show', help='show transactions from a group')
 
@@ -28,18 +28,24 @@ for csec, cname, cvalue in args.opt:
     if not config.has_section(csec): config.add_section(csec)
     config.set(csec, cname, cvalue)
 
-if args.command == 'store-config':
+def cmd_store_config():
     with open(args.config, 'w') as cfgfile:
         config.write(cfgfile)
     print("Config written")
+
+if args.command == 'store-config':
+    cmd_store_config()
     exit(0)
 elif args.command == 'login':
     try:
         l, login_result = LibreSplitClient.login(args.login_token)
+        if not config.has_section('libresplit'): config.add_section('libresplit')
         config.set('libresplit', 'hostname', l.base_url)
         config.set('libresplit', 'access_token', l.token)
         config.set('libresplit', 'email', login_result['email'])
         config.set('libresplit', 'username', login_result['username'])
+        cmd_store_config()
+        exit(0)
     except Exception as e:
         print("An error has occured:")
         print(e)

@@ -1,5 +1,5 @@
 
-import requests
+import requests, base64
 from urllib.parse import urlparse
 
 class LibreSplitClient(object):
@@ -12,7 +12,7 @@ class LibreSplitClient(object):
         }
 
     def login(login_token):
-        link = base64.b64decode(login_token)
+        link = base64.b64decode(login_token).decode('utf-8')
         parsed_url = urlparse(link)
         if parsed_url.scheme != 'https': raise Exception("invalid login token: illegal scheme '"+parsed_url.scheme+"'")
         if not parsed_url.path.endswith('/s'): raise Exception("invalid login token: illegal path '"+parsed_url.path+"'")
