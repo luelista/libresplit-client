@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+# -*- encoding: utf-8 -*-
+
+from configparser import ConfigParser
+import datetime
+from libresplit import LibreSplitClient, fairsplit
+import argparse
+from sys import exit
+
+parser = argparse.ArgumentParser(description='LibreSplit API client')
+parser.add_argument('--config', '-C', help='config file', default='config.ini')
+parser.add_argument('--group', '-g', help='alias or UUID of the LibreSplit group you want to operate on', default='default')
+parser.add_argument('--opt', '-O', help='override a config option', action='append', nargs=3, metavar=('SECTION', 'NAME', 'VALUE'), default=[])
+
+subparsers = parser.add_subparsers(help='sub-command help', dest='command')
+sp_store_config = subparsers.add_parser('store-config', help='store config options which are changed with the --opt argument permanently')
+sp_login = subparsers.add_parser('login', help='login with a login token')
+sp_login.add_argument('login-token', metavar='TOKEN')
+sp_add = subparsers.add_parser('add', help='add a new transaction')
+sp_show = subparsers.add_parser('show', help='show transactions from a group')
+
+args = parser.parse_args()
+
+config = ConfigParser()
+config.read(args.config)
+
+for csec, cname, cvalue in args.opt:
+    if not config.has_section(csec): config.add_section(csec)
+    config.set(csec, cname, cvalue)
+
+if args.command == 'store-config':
+    with open(args.config, 'w') as cfgfile:
+        config.write(cfgfile)
+    print("Config written")
+    exit(0)
+elif args.command == 'login':
+    try:
+        l, login_result = LibreSplitClient.login(args.login_token)
+        config.set('libresplit', 'hostname', l.base_url)
+        config.set('libresplit', 'access_token', l.token)
+        config.set('libresplit', 'email', login_result['email'])
+        config.set('libresplit', 'username', login_result['username'])
+    except Exception as e:
+        print("An error has occured:")
+        print(e)
+        exit(1)
+
+def dealias_group(group_alias_or_id):
+    if config.has_option('group_aliases', group_alias_or_id):
+        return config.get('group_aliases', group_alias_or_id)
+    elif len(group_alias_or_id) == 36:
+        return group_alias_or_id
+    else:
+        raise Exception("invalid group alias or id: "+group_alias_or_id)
+
+l = LibreSplitClient(config.get('libresplit', 'hostname'), config.get('libresplit','access_token'))
+group = l.get_group_by_id(dealias_group(args.group))
+
+if args.command == "show":
+    for expense in group.get_expenses():
+        print("%-10s %-40s %10s paid €%6.2f"%(expense['date'],expense['description'], expense['who_paid_name'], float(expense['amount'])/100))
+        print("           %s"%(expense['split_members']))
+

@@ -1,5 +1,6 @@
 
 import requests
+from urllib.parse import urlparse
 
 class LibreSplitClient(object):
     def __init__(self, api_root, token):
@@ -9,6 +10,20 @@ class LibreSplitClient(object):
                 'Authorization': 'Bearer '+token,
                 'Accept': 'application/json'
         }
+
+    def login(login_token):
+        link = base64.b64decode(login_token)
+        parsed_url = urlparse(link)
+        if parsed_url.scheme != 'https': raise Exception("invalid login token: illegal scheme '"+parsed_url.scheme+"'")
+        if not parsed_url.path.endswith('/s'): raise Exception("invalid login token: illegal path '"+parsed_url.path+"'")
+        resp = requests.request('GET', link, headers={'Accept': 'application/json'})
+        j = resp.json()
+        if j and 'login_error' in j:
+            raise Exception("Login error: "+j['login_error'])
+        resp.raise_for_status()
+        if j and 'access_token' in j and j['access_token']:
+            return LibreSplitClient('https://' + parsed_url.netloc + parsed_url.path[:-2], j['access_token']), j
+        raise Exception("Login link returned invalid data")
 
     def get_group_by_id(self, id):
         return LibreSplitGroup(self, '/group/' + id)
